@@ -14,6 +14,8 @@
 	module load python/2.7.13
 	module load boost/1.64.0_py2
 	module load hdf5
+	export GDAL_ROOT=/apps/GDAL/1.11.2/
+	export LD_LIBRARY_PATH=${GDAL_ROOT}/lib:${LD_LIBRARY_PATH
 
 3) Create a build directory and call cmake with the installation directory
     mkdir build
@@ -27,5 +29,4 @@
 	export PATH=${PANDORAPATH}/bin:${PATH}
 	export PYTHONPATH=${PANDORAPATH}/bin:${PYTHONPATH}
 	export LD_LIBRARY_PATH=${PANDORAPATH}/lib:${LD_LIBRARY_PATH}
-
 
