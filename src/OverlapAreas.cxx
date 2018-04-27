@@ -19,17 +19,17 @@ namespace Engine
                 std::cerr << "ABORTING PROGRAM:\n\tSize of the raster [" << size << "] is not multiple of N [" << _dim << "]\n";
             abort( );
         }
-        int lsize = size/_dim;
-        if ( lsize%2 != 0 )
+        _lsize = size/_dim;
+        if ( _lsize%2 != 0 )
         {
             if ( id == 0 )
-                std::cerr << "ABORTING PROGRAM:\n\tLocal size of the raster [" << lsize << "] is not multiple of 2\n";
+                std::cerr << "ABORTING PROGRAM:\n\tLocal size of the raster [" << _lsize << "] is not multiple of 2\n";
             abort( );
         }
 
         Rectangle<int> global = Rectangle<int>( Size<int>( size, size ), Point2D<int>( 0, 0 ) );
         _pos = Point2D<int>( id%_dim, id/_dim );
-        _area = Rectangle<int>( Size<int>( lsize, lsize ), _pos*lsize );
+        _area = Rectangle<int>( Size<int>( _lsize, _lsize ), _pos*_lsize );
         _boun = global.intersection( _area + Size<int>( 2*over, 2*over) - Point2D<int>(over,over) );
 
         // TOP BORDER
@@ -66,7 +66,7 @@ namespace Engine
             _left._bound = _l_boun;
 
             _topleft._n = _left._n;
-            _topleft._local = Rectangle<int>( _area.left( ), _boun.top( ), _area.left( )+over-1, _area.top( )+over-1-lsize/2 );
+            _topleft._local = Rectangle<int>( _area.left( ), _boun.top( ), _area.left( )+over-1, _area.top( )+_lsize/2+over-1 );
             _topleft._bound = _topleft._local - Point2D<int>( over, 0 );
          }
 
@@ -81,7 +81,7 @@ namespace Engine
             _right._bound = _r_boun;
 
             _topright._n = _right._n;
-            _topright._local = Rectangle<int>( _area.right( ) - over + 1, _boun.top( ), _area.right( ), _area.top( )+over-1-lsize/2 );
+            _topright._local = Rectangle<int>( _area.right( ) - over + 1, _boun.top( ), _area.right( ), _area.top( )+_lsize/2+over-1 );
             _topright._bound = _topright._local + Point2D<int>( over, 0 );
         }
         
@@ -142,7 +142,7 @@ namespace Engine
         _v_boun.push_back( boun );
     }
 
-    void OverlapAreas::abort( )
+    void OverlapAreas::abort( ) const
     {
         MPI_Barrier( MPI_COMM_WORLD );
         MPI_Finalize( );
@@ -261,13 +261,9 @@ namespace Engine
         return _neighbors;
     }
 
+#endif
     int OverlapAreas::getSection( Point2D<int> pos ) const
     {
-        if ( _sectionArea[0].contains( pos ) ) return 0;
-        if ( _sectionArea[1].contains( pos ) ) return 1;
-        if ( _sectionArea[2].contains( pos ) ) return 2;
-        if ( _sectionArea[3].contains( pos ) ) return 3;
-        return -1;
+        return ( pos._x >= _area._origin._x+_lsize/2 ) + 2*( pos._y >= _area._origin._y+_lsize/2 );
     }
-#endif
 }

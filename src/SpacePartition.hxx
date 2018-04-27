@@ -124,10 +124,13 @@ namespace Engine
 
         void reduceGhostAgents( );
         void sendGhostAgents( int dst, std::map<std::string,AgentsVector> agents );
-        void reciveGhostAgents( int src, bool lateral );
+        void reciveGhostAgents( int src, bool vertical, Overlap_st *lat, std::map<std::string,AgentsVector> *lAgents );
 
         AgentsList _verticalAgents;
         AgentsList _lateralAgents;
+
+        AgentsList _verticalAgentsToSend;
+        AgentsList _lateralAgentsToSend;
 
 #endif
 #endif

@@ -24,6 +24,7 @@ namespace Engine
     private :
         int _pid;
         int _dim;
+        int _lsize;
 
         Point2D<int> _pos;
         Rectangle<int> _area;
@@ -59,7 +60,7 @@ namespace Engine
         void push_back( int neig, Rectangle<int> area, Rectangle<int> boun );
     public :
         OverlapAreas( int id, int nprocs, int size, int over );
-        void abort( );
+        void abort( ) const;
         bool isEven( ) { return _pos._x%2 == _pos._y%2; }
 
         Overlap_st *getLeft( ) { return _pos._x > 0 ? &_left : 0; }
@@ -82,13 +83,14 @@ namespace Engine
         Rectangle<int> &getArea( int i ) { return _v_area[i]; }
         Rectangle<int> &getBoundary( int i ) { return _v_boun[i]; }
         std::vector<Rectangle<int>> &getAreas( ) { return _v_area; }
+
+        int getSection( Point2D<int> pos ) const;
 #ifdef RGT
         int _pid;
         int _nprocs;
         int _overlap;
         int _gsize;
         int _dim;
-        int _lsize;
 
         Point2D<int> _worldPos;
 
@@ -116,7 +118,6 @@ namespace Engine
         Point2D<int> getWorldOrigin( );
         NeightborVector &getNeighbors( );
 
-        int getSection( Point2D<int> pos ) const ;
 #endif
     }; // class OverlapAreas
 }

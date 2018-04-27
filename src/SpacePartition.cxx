@@ -419,11 +419,12 @@ namespace Engine
 #else
     void SpacePartition::stepSection( const int & sectionIndex, AgentsVector &agentsToExecute )
     {
-#ifdef TMP
         std::random_shuffle( agentsToExecute.begin( ), agentsToExecute.end( ) );
-        std::cout << _id << " " << sectionIndex << " SpacePartition::stepSection " << agentsToExecute.size() << "\n";
-        int numExecutedAgents = 0;
+        std::cout << _id << "  INIT section " << sectionIndex << "  nagents= " << agentsToExecute[sectionIndex].size() << "\n";
+        abort( );
         AgentsList agentsToSend;
+
+#ifdef TMP
         for ( auto agent: agentsToExecute )
         {
             agent->updateKnowledge( );
@@ -832,31 +833,26 @@ namespace Engine
         {
             MPI_Datatype * agentType = itType->second;
             AgentsVector agents = agentsMap[itType->first];
-  //          std::cout << _id << " SEND " << agents.size( ) << " " << itType->first << " to " << dst << "\n";
             for ( auto agent: agents )
             {
                 void * package = agent->fillPackage( );
                 int error = MPI_Send( package, 1, *agentType, dst, eGhostAgent, MPI_COMM_WORLD );
                 delete package;
                 agent->sendVectorAttributes( dst );
-                
             }
         }
-//        std::cout << _id << " sendGhostAgents " << dst << " DONE\n";
     }
 
-    void SpacePartition::reciveGhostAgents( int src, bool lateral )
+    void SpacePartition::reciveGhostAgents( int src, bool vertical, Overlap_st *lat, std::map<std::string,AgentsVector> *lAgents )
     {
         int nTypes = MpiFactory::instance( )->getSize( );
         int *nAgents = new int[nTypes];
         MPI_Status status;
-        
         int error = MPI_Recv( nAgents, nTypes, MPI_INTEGER, src, eGhostAgent, MPI_COMM_WORLD, &status );
         int j = 0;
         for ( MpiFactory::TypesMap::iterator itType=MpiFactory::instance( )->beginTypes( ); itType!=MpiFactory::instance( )->endTypes( ); itType++ )
         {
             MPI_Datatype * agentType = itType->second;
-            std::cout << _id << " reciveGhostAgents " << src << " nAgents " << nAgents[j] << " - " << itType->first << "\n";
             for ( int i=0; i < nAgents[j]; i++ )
             {
                 void * package = MpiFactory::instance( )->createDefaultPackage( itType->first );
@@ -864,54 +860,54 @@ namespace Engine
                 Agent * agent = MpiFactory::instance( )->createAndFillAgent( itType->first, package );
                 delete package;
                 agent->receiveVectorAttributes( src );
-                if ( lateral )
+
+                if ( vertical )
                 {
-                    _lateralAgents.push_back( AgentPtr( agent ) );
-                    std::cout << " TO DO --> LATERAL\n";
+                    _verticalAgents.push_back( AgentPtr( agent ) );
+                    if ( lat && lat->_local.contains( agent->getPosition( ) ) )
+                        (*lAgents)[agent->getType( )].push_back( AgentPtr( agent ) );
                 }
                 else
-                    _verticalAgents.push_back( AgentPtr( agent ) );
+                    _lateralAgents.push_back( AgentPtr( agent ) );
             }
+            j++;
         }
     }
 
     void SpacePartition::reduceGhostAgents( )
     {
-        std::map<std::string,AgentsVector> lateralAgents;
-        std::map<std::string,AgentsVector> verticalAgents;
+        std::map<std::string,AgentsVector> vAgents;
+        std::map<std::string,AgentsVector> lAgents;
+        Overlap_st *ver = _mpiOverlap->getBottom( );
+        Overlap_st *lat = _mpiOverlap->getTopRight( );
         for ( MpiFactory::TypesMap::iterator itType=MpiFactory::instance( )->beginTypes( ); itType!=MpiFactory::instance( )->endTypes( ); itType++ )
         {
-            lateralAgents[itType->first] = AgentsVector( );
-            verticalAgents[itType->first] = AgentsVector( );
+            vAgents[itType->first] = AgentsVector( );
+            lAgents[itType->first] = AgentsVector( );
         }
-
-        Overlap_st *lat = _mpiOverlap->getTopRight( );
-        Overlap_st *ver = _mpiOverlap->getBottom( );
-        
         for ( AgentsList::iterator it=_world->beginAgents( ); it!=_world->endAgents( ); it++ )
         {
             if ( lat && lat->_local.contains( (*it)->getPosition( ) ) )
-                lateralAgents[(*it)->getType( )].push_back( *it );
+                lAgents[(*it)->getType( )].push_back( *it );
             if ( ver && ver->_local.contains( (*it)->getPosition( ) ) )
-                verticalAgents[(*it)->getType( )].push_back( *it );
+                vAgents[(*it)->getType( )].push_back( *it );
         }
-        // Send Right / Recv left
+        // Recv TOP && Send BOTTOM ) => Recv Left && Send Right
         Overlap_st *b;
         if ( _mpiOverlap->isEven( ) )
         {
-            if ( ( b = _mpiOverlap->getTop( ) ) != 0 ) reciveGhostAgents( b->_n, false );
-            if ( ( b = _mpiOverlap->getBottom( ) ) != 0 ) sendGhostAgents( b->_n, verticalAgents );
-            if ( ( b = _mpiOverlap->getTopLeft( ) ) != 0 ) reciveGhostAgents( b->_n, true );
-            if ( ( b = _mpiOverlap->getTopRight( ) ) != 0 ) sendGhostAgents( b->_n, lateralAgents );
+            if ( ( b = _mpiOverlap->getTop( ) ) != 0 ) reciveGhostAgents( b->_n, true, lat, &lAgents );
+            if ( ( b = _mpiOverlap->getBottom( ) ) != 0 ) sendGhostAgents( b->_n, vAgents );
+            if ( ( b = _mpiOverlap->getTopLeft( ) ) != 0 ) reciveGhostAgents( b->_n, false, 0, 0 );
+            if ( ( b = _mpiOverlap->getTopRight( ) ) != 0 ) sendGhostAgents( b->_n, lAgents );
         }
         else
         {
-            if ( ( b = _mpiOverlap->getBottom( ) ) != 0 ) sendGhostAgents( b->_n, verticalAgents );
-            if ( ( b = _mpiOverlap->getTop( ) ) != 0 ) reciveGhostAgents( b->_n, false );
-            if ( ( b = _mpiOverlap->getTopRight( ) ) != 0 ) sendGhostAgents( b->_n, lateralAgents );
-            if ( ( b = _mpiOverlap->getTopLeft( ) ) != 0 ) reciveGhostAgents( b->_n, true );
+            if ( ( b = _mpiOverlap->getBottom( ) ) != 0 ) sendGhostAgents( b->_n, vAgents );
+            if ( ( b = _mpiOverlap->getTop( ) ) != 0 ) reciveGhostAgents( b->_n, true, lat, &lAgents );
+            if ( ( b = _mpiOverlap->getTopRight( ) ) != 0 ) sendGhostAgents( b->_n, lAgents );
+            if ( ( b = _mpiOverlap->getTopLeft( ) ) != 0 ) reciveGhostAgents( b->_n, false, 0, 0 );
         }
-        abort( );
     }
 
 
@@ -1363,46 +1359,25 @@ namespace Engine
 
     void SpacePartition::executeAgents( )
     {
-        std::cout << _id << " n_a=" << _world->getNumberOfAgents( ) << " ov_a=" << getNumberOfOverlapAgents( ) << "\n";
-#ifndef ORIG
-#ifdef RGT
         // Reset Executed Agents map
         _executedAgentsHash.clear( );
 
         AgentsVector agentsToExecute[4];
         for ( AgentsList::iterator it=_world->beginAgents( ); it!=_world->endAgents( ); it++ )
-            if ( ! hasBeenExecuted( (*it)->getId( ) ) )
-                agentsToExecute[_OverlapAreas.getSection( (*it)->getPosition( ) )].push_back( *it );
-
+            agentsToExecute[_mpiOverlap->getSection( (*it)->getPosition( ) )].push_back( *it );
 
         for ( int sectionIndex=0; sectionIndex<4; sectionIndex++ )
         {
             stepSection( sectionIndex, agentsToExecute[sectionIndex] );
+
+            std::cout << _id << "  INIT section " << sectionIndex << "  nagents= " << agentsToExecute[sectionIndex].size() << "\n";
+            abort( );
         
             agentsToExecute[sectionIndex].clear( );
         }
-        std::cout << _id << " SpacePartition::executeAgents\n"; MPI_Barrier( MPI_COMM_WORLD ); MPI_Finalize( ); exit(0);
-#endif
-
-#else
-        for ( int sectionIndex=0; sectionIndex<4; sectionIndex++ )
-        {
-            // section index doesn't matter if is the entire overlap
-            // TODO refactor? we are sending 4 times all the info
-            sendOverlapZones( sectionIndex, false );
-            receiveOverlapData( sectionIndex, false );
-        }
-
-        std::stringstream logName;
-        logName << "simulation_" << getId( );
-
-        log_DEBUG( logName.str( ), getWallTime( ) << " step: " << _world->getCurrentStep( ) << " has executed update overlap" );
+        std::cout << _id << "  ecuteAgents END\n"; abort();
+#ifdef ORIG
         _executedAgentsHash.clear( );
-
-        std::stringstream logNameMpi;
-        logNameMpi << "simulation_" << _id;
-
-        log_DEBUG( logName.str( ), getWallTime( ) << " step: " << _world->getCurrentStep( ) << " executing sections" );
         for ( int sectionIndex=0; sectionIndex<4; sectionIndex++ )
         {
             stepSection( sectionIndex );
@@ -1464,8 +1439,6 @@ namespace Engine
         reduceOverlapZones( );
         reduceGhostAgents( );
 #endif
-
-
     }
 
     void SpacePartition::abort( )
