@@ -419,6 +419,10 @@ namespace Engine
 #else
     void SpacePartition::stepSection( const int & sectionIndex, AgentsVector &agentsToExecute )
     {
+        Overlap_st *ver = _mpiOverlap->getVertical( sectionIndex );
+        std::cout << _id << "  TOP? " << ver->_bound << "\n";
+        abort( );
+
         std::random_shuffle( agentsToExecute.begin( ), agentsToExecute.end( ) );
         AgentsList agentsToSend;
         for ( auto agent: agentsToExecute )
@@ -429,13 +433,15 @@ namespace Engine
 
         for ( auto agent: agentsToExecute )
         {
-            if ( ! agent->exists( ) )
+            if ( agent->exists( ) )
             {
-                std::cout << "RGT... This agent is not alive: abort o continue?\n";
-                abort( );
+                agent->executeActions( );
+                agent->updateState( );
+                if ( !_ownedArea.contains( agent->getPosition( ) ) )
+                {
+                    std::cout << _id << " What to do: " << agent->getId( ) << " -- " << agent->getPosition( ) << "\n";
+                }
             }
-            agent->executeActions( );
-            agent->updateState( );
 #ifdef TMP
 
             if ( !_ownedArea.contains( agent->getPosition( ) ) )
@@ -804,7 +810,6 @@ namespace Engine
             Agent * agent = MpiFactory::instance( )->createAndFillAgent( type, package );
             delete package;
             agent->receiveVectorAttributes( mpi_id );
-            std::cout << _id << " " << agent->getId( ) << " -- " << mpi_id << " WORLD " << "\n";
             AgentsList::iterator it = getGhostAgentPtr( agent->getId( ) );
             if ( it != _overlapAgents.end( ) )
                 _overlapAgents.erase( it );
@@ -871,10 +876,14 @@ namespace Engine
                 {
                     _verticalAgents.push_back( AgentPtr( agent ) );
                     if ( lat && lat->_local.contains( agent->getPosition( ) ) )
-                        (*lAgents)[agent->getType( )].push_back( AgentPtr( agent ) );
+                    {
+                        (*lAgents)[agent->getType( )].push_back( _verticalAgents.back( ) );
+                    }
                 }
                 else
+                {
                     _lateralAgents.push_back( AgentPtr( agent ) );
+                }
             }
             j++;
         }
@@ -884,15 +893,25 @@ namespace Engine
     {
         if ( _id == 0 ) // RGT: To be removed
         {
-            Agent *agent = (*_world->beginAgents( )).get();
-            agent->setPosition( Point2D<int>( _ownedArea.right(), _ownedArea.bottom() ) );
-            std::cout << "Corner: " << agent->getId() << " -- " << agent->getPosition() << "\n";
             for ( auto it=_world->beginAgents( ); it != _world->endAgents( ); it++)
             {
-                agent = (*it).get();
-                if (agent->isType("Impala"))
+                Agent *agent = (*it).get();
+                if ( agent->isType( "Impala" ) )
                 {
-                    agent->setPosition( Point2D<int>( _ownedArea.right()-1, _ownedArea.bottom()-1 ) );
+                    agent->setPosition( Point2D<int>( _ownedArea.right(), _ownedArea.bottom( ) ) );
+                    std::cout << "Corner: " << agent->getId() << " -- " << agent->getPosition() << "\n";
+                    break;
+                }
+            }
+        }
+        if ( _id == 3 ) // RGT: To be removed
+        {
+            for ( auto it=_world->beginAgents( ); it != _world->endAgents( ); it++)
+            {
+                Agent *agent = (*it).get();
+                if ( agent->isType( "Lion" ) )
+                {
+                    agent->setPosition( _ownedArea._origin );
                     std::cout << "Corner: " << agent->getId() << " -- " << agent->getPosition() << "\n";
                     break;
                 }
@@ -2034,7 +2053,6 @@ namespace Engine
 
     void SpacePartition::agentAdded( AgentPtr agent, bool executedAgent )
     {
-        std::cout << _id << " agentAdded DO\n";
         _executedAgentsHash.insert( make_pair( agent->getId( ), agent ));
         for ( auto it=_verticalAgents.begin( ); it != _verticalAgents.end( ); it++ )
         {
@@ -2052,7 +2070,6 @@ namespace Engine
                 return;
             }
         }
-        std::cout << _id << " agentAdded DONE\n";
 #ifdef ORIG
         AgentsList::iterator it = getGhostAgentPtr( agent->getId( ) );
         if ( it!=_overlapAgents.end( ) )
@@ -2106,7 +2123,20 @@ namespace Engine
 
     void SpacePartition::removeAgent( Agent * agent )
     {
-        std::cout << "SpacePartition::removeAgent\n"; exit(1);
+        if ( !_ownedArea.contains( agent->getPosition() ) )
+        {
+            std::cout << "SpacePartition::removeAgent " << agent->getId( ) << "\n"; abort( );
+        }
+        for ( AgentsList::iterator it=_world->beginAgents( ); it!=_world->endAgents( ); it++ )
+        {
+            if ( (*it )->getId( ) == agent->getId( ) )
+            {
+                _removedAgents.push_back( *it );
+                return;
+            }
+        }
+#ifdef RGT
+        std::cout << "SpacePartition::removeAgent\n"; abort( );
         AgentsList::iterator it = getOwnedAgentPtr( agent->getId( ) );
         if ( it==_world->endAgents( ) )
         {
@@ -2117,6 +2147,7 @@ namespace Engine
         // TODO it is not needed if it has modified position, as it is already done after the executed of a given agent step
         //sendDeleteOverlapAgent( it, agent->getPosition( ) );
         _removedAgents.push_back( *it );
+#endif
     }
 
     void SpacePartition::removeAgents( )
@@ -2283,8 +2314,6 @@ namespace Engine
     AgentsVector SpacePartition::getNeighbours( Agent * target, const double & radius, const std::string & type )
     {
         AgentsVector agentsVector;
-        std::cout <<  _id << " -- " << target->getId() << " DO\n";
-
         bool all = type == "all";
         Point2D<int> center = target->getPosition( );
         for ( auto it = _world->beginAgents( ); it != _world->endAgents( ); it++ )
@@ -2299,28 +2328,8 @@ namespace Engine
             if ( it->exists( ) && target->getId( ) != it->getId( ) &&
                ( all || it->isType( type ) ) && ( center.distance( it->getPosition( ) ) - radius ) <= 0.0001 )
                 agentsVector.push_back( it );
-        if ( agentsVector.size() > 0 )
-        {
-            std::cout <<  _id << " -- " << target->getId() << " meet " << agentsVector.size() << "\n";
-            for ( auto it: agentsVector )
-                std::cout <<  _id << " --                " << it->getId() << "\n";
-            abort( );
-        }
-        std::cout <<  _id << " -- " << target->getId() << " DONE\n";
+        std::random_shuffle( agentsVector.begin( ), agentsVector.end( ) );
         return agentsVector;
-#ifdef KK            
-                {
-                    return;
-                }
-                if ( _particularType && !neighbor->isType( _type ))
-                {
-                    return;
-                }
-                if ( _center.getPosition( ).distance( neighbor->getPosition( ) )-_radius<= 0.0001 )
-                {
-                        execute( neighbor );
-                }
-#endif
 #ifdef ORIG
         AgentsVector agentsVector = for_each( _world->beginAgents( ), _world->endAgents( ), aggregatorGet<std::shared_ptr<Agent> >( radius, *target, type ))._neighbors;
         AgentsVector overlapAgentsVector =  for_each( _overlapAgents.begin( ), _overlapAgents.end( ), aggregatorGet<std::shared_ptr<Agent> >( radius, *target, type ))._neighbors;

@@ -131,7 +131,6 @@ namespace Engine
 
         AgentsList _verticalAgentsToSend;
         AgentsList _lateralAgentsToSend;
-
 #endif
 #endif
 

@@ -149,6 +149,13 @@ namespace Engine
         exit(0);
     }
 
+    Overlap_st *OverlapAreas::getVertical( int step )
+    {
+        return step == 0 || step == 1 ? &_top : &_bottom;
+    }
+
+
+
 #ifdef RGT
     OverlapAreas::OverlapAreas( int pid, int nprocs, int overlap, int gsize ) : _pid( pid ), _nprocs( nprocs ), _overlap( overlap ), _gsize( gsize )
     {

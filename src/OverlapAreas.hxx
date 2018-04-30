@@ -63,6 +63,9 @@ namespace Engine
         void abort( ) const;
         bool isEven( ) { return _pos._x%2 == _pos._y%2; }
 
+        Overlap_st *getVertical( int step );
+
+
         Overlap_st *getLeft( ) { return _pos._x > 0 ? &_left : 0; }
         Overlap_st *getRight( ) { return _pos._x < _dim-1 ? &_right : 0; }
         Overlap_st *getTop( ) { return _pos._y >0 ? &_top : 0; }
