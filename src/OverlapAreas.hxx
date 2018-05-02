@@ -17,6 +17,7 @@ namespace Engine
         int _n;
         Rectangle<int> _local;
         Rectangle<int> _bound;
+        Rectangle<int> _exten;
     } Overlap_st;
 
     class OverlapAreas
@@ -33,6 +34,8 @@ namespace Engine
         Overlap_st _left;
         Overlap_st _topleft;
         Overlap_st _topright;
+        Overlap_st _bottomleft;
+        Overlap_st _bottomright;
 
         int _l_neig;
         Rectangle<int> _l_area;
@@ -64,7 +67,7 @@ namespace Engine
         bool isEven( ) { return _pos._x%2 == _pos._y%2; }
 
         Overlap_st *getVertical( int step );
-
+        Overlap_st *getLateral( int step );
 
         Overlap_st *getLeft( ) { return _pos._x > 0 ? &_left : 0; }
         Overlap_st *getRight( ) { return _pos._x < _dim-1 ? &_right : 0; }
@@ -73,6 +76,8 @@ namespace Engine
 
         Overlap_st *getTopLeft( ) { return _pos._x > 0 ? &_topleft : 0; }
         Overlap_st *getTopRight( ) { return _pos._x < _dim-1 ? &_topright : 0; }
+        Overlap_st *getBottomLeft( ) { return _pos._x > 0 ? &_bottomleft : 0; }
+        Overlap_st *getBottomRight( ) { return _pos._x < _dim-1 ? &_bottomright : 0; }
 
         bool isLeft( ) { return _pos._x > 0; }
         bool isRight( ) { return _pos._x < _dim-1; }

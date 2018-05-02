@@ -34,7 +34,7 @@ namespace Engine
 
     SpacePartition::~SpacePartition( )
     {
-        std::cout << "SpacePartition::~SpacePartition\n"; exit(1);
+        std::cout << _id << " SpacePartition::~SpacePartition *******************************************************\n"; abort( );
     }
 
     void SpacePartition::init( int argc, char *argv[] )
@@ -420,8 +420,7 @@ namespace Engine
     void SpacePartition::stepSection( const int & sectionIndex, AgentsVector &agentsToExecute )
     {
         Overlap_st *ver = _mpiOverlap->getVertical( sectionIndex );
-        std::cout << _id << "  TOP? " << ver->_bound << "\n";
-        abort( );
+        Overlap_st *lat = _mpiOverlap->getLateral( sectionIndex );
 
         std::random_shuffle( agentsToExecute.begin( ), agentsToExecute.end( ) );
         AgentsList agentsToSend;
@@ -439,8 +438,17 @@ namespace Engine
                 agent->updateState( );
                 if ( !_ownedArea.contains( agent->getPosition( ) ) )
                 {
-                    std::cout << _id << " What to do: " << agent->getId( ) << " -- " << agent->getPosition( ) << "\n";
+                    auto agentIt = getOwnedAgentPtr( agent->getId( ) );
+                    _world->eraseAgent( agentIt );
+                    if ( ver && ver->_bound.contains( agent->getPosition( ) ) )
+                        _verticalAgents.push_back( agent );
+                    if ( lat && lat->_bound.contains( agent->getPosition( ) ) )
+                        _lateralAgents.push_back( agent );
                 }
+                if ( ver && ver->_exten.contains( agent->getPosition( ) ) )
+                    _verticalAgentsToSend.push_back( agent );
+                if ( lat && lat->_exten.contains( agent->getPosition( ) ) )
+                    _lateralAgentsToSend.push_back( agent );
             }
 #ifdef TMP
 
@@ -457,8 +465,7 @@ namespace Engine
             }
 #endif   
         }
-        std::cout << _id << "  All agents executed\n";
-
+        std::cout << _id << "  All agents executed " << _verticalAgentsToSend.size( ) << " " << _lateralAgentsToSend.size( ) << "\n";
         abort( );
     }
 #endif
@@ -854,7 +861,7 @@ namespace Engine
         }
     }
 
-    void SpacePartition::reciveGhostAgents( int src, bool vertical, Overlap_st *lat, std::map<std::string,AgentsVector> *lAgents )
+    void SpacePartition::reciveGhostAgents( int src, bool vertical, std::map<std::string,AgentsVector> *lAgents )
     {
         int nTypes = MpiFactory::instance( )->getSize( );
         int *nAgents = new int[nTypes];
@@ -871,18 +878,23 @@ namespace Engine
                 Agent * agent = MpiFactory::instance( )->createAndFillAgent( itType->first, package );
                 delete package;
                 agent->receiveVectorAttributes( src );
+                AgentPtr agPtr =  AgentPtr( agent );
 
                 if ( vertical )
                 {
-                    _verticalAgents.push_back( AgentPtr( agent ) );
-                    if ( lat && lat->_local.contains( agent->getPosition( ) ) )
+                    _verticalAgents.push_back( agPtr );
+                    if ( ( _topLateral && _topLateral->_local.contains( agent->getPosition( ) ) ) ||
+                         ( _bottomLateral && _bottomLateral->_local.contains( agent->getPosition( ) ) ) )
                     {
-                        (*lAgents)[agent->getType( )].push_back( _verticalAgents.back( ) );
+                        (*lAgents)[agent->getType( )].push_back( agPtr );
                     }
                 }
                 else
                 {
-                    _lateralAgents.push_back( AgentPtr( agent ) );
+                    if ( _topLateral->_local.contains( agent->getPosition( ) ) )
+                        _topLateralAgents.push_back( agPtr );
+                    if ( _bottomLateral->_local.contains( agent->getPosition( ) ) )
+                        _bottomLateralAgents.push_back( agPtr );
                 }
             }
             j++;
@@ -909,18 +921,24 @@ namespace Engine
             for ( auto it=_world->beginAgents( ); it != _world->endAgents( ); it++)
             {
                 Agent *agent = (*it).get();
-                if ( agent->isType( "Lion" ) )
+                if ( agent->getId( ) ==  "Lion_3" )
                 {
                     agent->setPosition( _ownedArea._origin );
                     std::cout << "Corner: " << agent->getId() << " -- " << agent->getPosition() << "\n";
+                }
+                if ( agent->isType( "Impala" ) )
+                {
+                    agent->setPosition( _ownedArea._origin + Point2D<int>(0,32) );
+                    std::cout << "MidPoint: " << agent->getId() << " -- " << agent->getPosition() << "\n";
                     break;
                 }
             }
         }
+        abort();
         std::map<std::string,AgentsVector> vAgents;
         std::map<std::string,AgentsVector> lAgents;
         Overlap_st *ver = _mpiOverlap->getBottom( );
-        Overlap_st *lat = _mpiOverlap->getTopRight( );
+        Overlap_st *lat = _mpiOverlap->getRight( );
         for ( MpiFactory::TypesMap::iterator itType=MpiFactory::instance( )->beginTypes( ); itType!=MpiFactory::instance( )->endTypes( ); itType++ )
         {
             vAgents[itType->first] = AgentsVector( );
@@ -937,17 +955,17 @@ namespace Engine
         Overlap_st *b;
         if ( _mpiOverlap->isEven( ) )
         {
-            if ( ( b = _mpiOverlap->getTop( ) ) != 0 ) reciveGhostAgents( b->_n, true, lat, &lAgents );
+            if ( ( b = _mpiOverlap->getTop( ) ) != 0 ) reciveGhostAgents( b->_n, true, &lAgents );
             if ( ( b = _mpiOverlap->getBottom( ) ) != 0 ) sendGhostAgents( b->_n, vAgents );
-            if ( ( b = _mpiOverlap->getTopLeft( ) ) != 0 ) reciveGhostAgents( b->_n, false, 0, 0 );
+            if ( ( b = _mpiOverlap->getTopLeft( ) ) != 0 ) reciveGhostAgents( b->_n, false, 0 );
             if ( ( b = _mpiOverlap->getTopRight( ) ) != 0 ) sendGhostAgents( b->_n, lAgents );
         }
         else
         {
             if ( ( b = _mpiOverlap->getBottom( ) ) != 0 ) sendGhostAgents( b->_n, vAgents );
-            if ( ( b = _mpiOverlap->getTop( ) ) != 0 ) reciveGhostAgents( b->_n, true, lat, &lAgents );
+            if ( ( b = _mpiOverlap->getTop( ) ) != 0 ) reciveGhostAgents( b->_n, true, &lAgents );
             if ( ( b = _mpiOverlap->getTopRight( ) ) != 0 ) sendGhostAgents( b->_n, lAgents );
-            if ( ( b = _mpiOverlap->getTopLeft( ) ) != 0 ) reciveGhostAgents( b->_n, false, 0, 0 );
+            if ( ( b = _mpiOverlap->getTopLeft( ) ) != 0 ) reciveGhostAgents( b->_n, false, 0 );
         }
     }
 
@@ -1477,6 +1495,8 @@ namespace Engine
         for ( size_t d=0; d<_world->getNumberOfRasters( ); d++ )
             if ( _world->rasterExists( d )  && _world->isRasterDynamic( d ) )
                 _rasters.push_back( &_world->getDynamicRaster( d ) );
+        _topLateral = _mpiOverlap->getTopLeft( );
+        _bottomLateral = _mpiOverlap->getBottomLeft( );
         reduceOverlapZones( );
         reduceGhostAgents( );
 #endif

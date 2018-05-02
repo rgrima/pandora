@@ -38,9 +38,11 @@ namespace Engine
             _t_neig = id - _dim;
             _t_area = Rectangle<int>( _area.left( ), _area.top( ), _area.right( ), _area.top( ) + over - 1 );
             _t_boun = _t_area - Point2D<int>( 0, over );
+
             _top._n = id - _dim;;
-            _top._local = _t_area;
-            _top._bound = _t_boun;
+            _top._local = Rectangle<int>( _area.left( ), _area.top( ), _area.right( ), _area.top( ) + over - 1 );
+            _top._bound = _top._local - Point2D<int>( 0, over );
+            _top._exten = Rectangle<int>( _boun.left( ), _boun.top( ), _boun.right( ), _area.top( ) + over - 1 );
         }
 
         // BOTTOM BORDER
@@ -49,9 +51,11 @@ namespace Engine
             _b_neig = id + _dim;
             _b_area = Rectangle<int>( _area.left( ), _area.bottom( ) - over + 1, _area.right( ), _area.bottom( ) );
             _b_boun = _b_area + Point2D<int>( 0, over );
+
             _bottom._n = id + _dim;;
-            _bottom._local = _b_area;
-            _bottom._bound = _b_boun;
+            _bottom._local = Rectangle<int>( _area.left( ), _area.bottom( ) - over + 1, _area.right( ), _area.bottom( ) );
+            _bottom._bound = _bottom._local + Point2D<int>( 0, over );
+            _bottom._exten = Rectangle<int>( _boun.left( ), _area.bottom( ) - over + 1, _boun.right( ), _boun.bottom( ) );
         }
 
         // LEFT BORDER
@@ -61,13 +65,20 @@ namespace Engine
             _l_area = Rectangle<int>( _area.left( ), _boun.top( ), _area.left( )+over-1, _boun.bottom( ) );
             _l_boun = _l_area - Point2D<int>( over, 0 );
 
-            _left._n = _l_neig;
-            _left._local = _l_area;
-            _left._bound = _l_boun;
+            _left._n = id - 1;
+            _left._local = Rectangle<int>( _area.left( ), _boun.top( ), _area.left( )+over-1, _boun.bottom( ) );
+            _left._bound = _left._local - Point2D<int>( over, 0 );
+            _left._exten = Rectangle<int>( _boun.left( ), _boun.top( ), _area.left( )+over-1, _boun.bottom( ) );
 
-            _topleft._n = _left._n;
+            _topleft._n = id - 1;
             _topleft._local = Rectangle<int>( _area.left( ), _boun.top( ), _area.left( )+over-1, _area.top( )+_lsize/2+over-1 );
             _topleft._bound = _topleft._local - Point2D<int>( over, 0 );
+            _topleft._exten = Rectangle<int>( _boun.left( ), _boun.top( ), _area.left( )+over-1, _area.top( )+_lsize/2+over-1 );
+
+            _bottomleft._n = id - 1;
+            _bottomleft._local = Rectangle<int>( _area.left( ), _area.top( )+_lsize/2-over, _area.left( )+over-1, _boun.bottom() );
+            _bottomleft._bound = _bottomleft._local - Point2D<int>( over, 0 );
+            _bottomleft._exten = Rectangle<int>( _boun.left( ), _area.top( )+_lsize/2-over, _area.left( )+over-1, _boun.bottom() );
          }
 
         // RIGHT BORDER
@@ -76,13 +87,21 @@ namespace Engine
             _r_neig = id + 1;
             _r_area = Rectangle<int>( _area.right( ) - over + 1, _boun.top( ), _area.right( ), _boun.bottom( ) );
             _r_boun = _r_area + Point2D<int>( over, 0 );
-            _right._n = _r_neig;
-            _right._local = _r_area;
-            _right._bound = _r_boun;
 
-            _topright._n = _right._n;
+            _right._n = id + 1;
+            _right._local = Rectangle<int>( _area.right( ) - over + 1, _boun.top( ), _area.right( ), _boun.bottom( ) );
+            _right._bound = _right._local + Point2D<int>( over, 0 );
+            _right._exten = Rectangle<int>( _area.right( ) - over + 1, _boun.top( ), _boun.right( ), _boun.bottom( ) );
+
+            _topright._n = id + 1;
             _topright._local = Rectangle<int>( _area.right( ) - over + 1, _boun.top( ), _area.right( ), _area.top( )+_lsize/2+over-1 );
             _topright._bound = _topright._local + Point2D<int>( over, 0 );
+            _topright._exten = Rectangle<int>( _area.right( ) - over + 1, _boun.top( ), _boun.right( ), _area.top( )+_lsize/2+over-1 );
+
+            _bottomright._n = id + 1;
+            _bottomright._local = Rectangle<int>( _area.right( ) - over + 1, _area.top( )+_lsize/2-over, _area.right( ), _boun.bottom() );
+            _bottomright._bound = _bottomleft._local + Point2D<int>( over, 0 );
+            _bottomright._exten = Rectangle<int>( _area.right( ) - over + 1, _area.top( )+_lsize/2-over, _boun.right( ), _boun.bottom() );
         }
         
         if ( _pos._x%2 == _pos._y%2 )
@@ -151,7 +170,17 @@ namespace Engine
 
     Overlap_st *OverlapAreas::getVertical( int step )
     {
-        return step == 0 || step == 1 ? &_top : &_bottom;
+        if ( step == 0 || step == 1 ) return isTop( ) ? &_top : 0;
+        if ( step == 2 || step == 3 ) return isBottom( ) ? &_bottom : 0;
+        return 0;
+    }
+    Overlap_st *OverlapAreas::getLateral( int step )
+    {
+        if ( step == 0 ) return isLeft( ) ? &_topleft : 0;
+        if ( step == 1 ) return isRight( ) ? &_topright : 0;;
+        if ( step == 2 ) return isLeft( ) ? &_bottomleft : 0;
+        if ( step == 3 ) return isRight( ) ? &_bottomright : 0;
+        return 0;
     }
 
 
