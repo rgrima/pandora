@@ -121,18 +121,25 @@ namespace Engine
         void sendOverlapZone( Rectangle<int> area, int dest );
         void receiveOverlapZone( Rectangle<int> area, int src );
         void reduceOverlapZones( );
+        void reduceOverlapZones( int section );
 
-        void reduceGhostAgents( );
         void sendGhostAgents( int dst, std::map<std::string,AgentsVector> agents );
-        void reciveGhostAgents( int src, bool vertical, std::map<std::string,AgentsVector> *lAgents );
+        AgentsVector reciveGhostAgents( int src );
+        void reduceGhostAgents( );
+        void reduceGhostAgents( int section );
 
+        Overlap_st *_vertical;
         AgentsList _verticalAgents;
+
         // Lateral agents
         AgentsList _topLateralAgents;
         Overlap_st *_topLateral;
+
         AgentsList _bottomLateralAgents;
         Overlap_st *_bottomLateral;
+
         AgentsList &_lateralAgents = _topLateralAgents;
+        Overlap_st *_lateral;
 
         AgentsList _verticalAgentsToSend;
         AgentsList _lateralAgentsToSend;
