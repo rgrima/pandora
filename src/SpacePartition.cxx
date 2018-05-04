@@ -20,6 +20,35 @@
  */
 
 #include <SpacePartition.hxx>
+
+namespace Engine
+{
+
+
+    void SpacePartition::abort( )
+    {
+        MPI_Barrier( MPI_COMM_WORLD );
+        MPI_Finalize( );
+        exit(0);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#ifdef RGT
+
 #include <Agent.hxx>
 #include <MpiFactory.hxx>
 #include <Logger.hxx>
@@ -2517,3 +2546,5 @@ namespace Engine
     }
 
 } // namespace Engine
+
+#endif

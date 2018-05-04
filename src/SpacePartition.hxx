@@ -22,13 +22,45 @@
 #ifndef __SpacePartition_hxx__
 #define __SpacePartition_hxx__
 
+#include <Scheduler.hxx>
+#include <Serializer.hxx>
+
+namespace Engine
+{
+/*
+ * SpacePartition is a execution scheduler
+ * It distributes a Pandora execution in different nodes using spatial partition
+ * Each node contains the same amount of space and the agents inside
+ * It is efficient for models where a homogeneous density of agents is expected around the whole world
+ *
+ */
+    class SpacePartition : public Scheduler
+    {
+    private:
+        Serializer _serializer;
+        Rectangle<int> _ownedArea;
+        int _overlap;
+    public:
+        SpacePartition( const int & overlap, bool finalize );
+        virtual ~SpacePartition( );
+
+
+        const Rectangle<int> & getOwnedArea( ) const { return _ownedArea; }
+        const int & getOverlap( ) const { return _overlap; }
+
+        // DEBUG func
+        void abort( );
+    };
+} // namespace Engine
+
+#ifdef RGT
+
 #include <mpi.h>
 #include <World.hxx>
 #include <typedefs.hxx>
 #include <Serializer.hxx>
 #include <list>
 #include <vector>
-#include <Scheduler.hxx>
 #include <OverlapAreas.hxx>
 
 namespace Engine
@@ -273,4 +305,7 @@ namespace Engine
 #endif
     };
 } // namespace Engine
+
+#endif
+
 #endif // __SpacePartition_hxx__

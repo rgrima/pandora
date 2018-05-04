@@ -1,4 +1,6 @@
 #include <OverlapAreas.hxx>
+
+#ifdef RGT
 #include <mpi.h>
 
 namespace Engine
@@ -303,3 +305,4 @@ namespace Engine
         return ( pos._x >= _area._origin._x+_lsize/2 ) + 2*( pos._y >= _area._origin._y+_lsize/2 );
     }
 }
+#endif

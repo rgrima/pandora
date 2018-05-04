@@ -1,6 +1,9 @@
 #ifndef __OverlapAreas_hxx__
 #define __OverlapAreas_hxx__
 
+
+#ifdef RGT
+
 #include <typedefs.hxx>
 #include <Rectangle.hxx>
 #include <Point2D.hxx>
@@ -129,4 +132,7 @@ namespace Engine
 #endif
     }; // class OverlapAreas
 }
+
+#endif
+
 #endif
